@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Secretary {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password_hash String
+  phone         String?
+  created_at    DateTime @default(now())
+
+  ticket Ticket[]
+
+  @@map("secretary")
+}
+
+model Client {
+  id    String  @id @default(uuid())
+  name  String
+  email String  @unique
+  phone String?
+
+  enterprise Enterprise[]
+
+  @@map("client")
+}
+
+model Inspector {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  phone         String?
+  password_hash String
+  created_at    DateTime @default(now())
+
+  inspectionReport InspectionReport[]
+
+  @@map("inspector")
+}
+
+model Enterprise {
+  id        String @id @default(uuid())
+  address   String
+  client_id String
+
+  client Client @relation(fields: [client_id], references: [id])
+
+  ticket Ticket[]
+
+  @@map("enterprise")
+}
+
+model ServiceOrder {
+  id            String    @id @default(uuid())
+  scheduledDate DateTime?
+  thirdParty    String?
+  totalCost     Float?
+
+  inspectionReport InspectionReport[]
+
+  @@map("service_order")
+}
+
+model InspectionReport {
+  id               String    @id @default(uuid())
+  service_order_id String
+  inspector_id     String
+  completionDate   DateTime?
+
+  serviceOrder ServiceOrder @relation(fields: [service_order_id], references: [id])
+  isnspector   Inspector    @relation(fields: [inspector_id], references: [id])
+
+  inspectionOrder InspectionOrder[]
+
+  @@map("inspection_report")
+}
+
+model InspectionOrder {
+  id                   String    @id @default(uuid())
+  inspection_report_id String
+  scheduledDate        DateTime?
+
+  inspectionReport InspectionReport @relation(fields: [inspection_report_id], references: [id])
+
+  ticket Ticket[]
+
+  @@map("inspection_order")
+}
+
+model Ticket {
+  id                  String    @id @default(uuid())
+  enterprise_id       String
+  secretary_id        String
+  inspection_order_id String
+  openDate            DateTime
+  closeDate           DateTime?
+  status              String
+
+  enterprise      Enterprise      @relation(fields: [enterprise_id], references: [id])
+  secretary       Secretary       @relation(fields: [secretary_id], references: [id])
+  inspectionOrder InspectionOrder @relation(fields: [inspection_order_id], references: [id])
+
+  @@map("ticket")
+}
