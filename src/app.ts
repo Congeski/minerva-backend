@@ -9,7 +9,12 @@ import { inspectionReportRoutes } from './http/routes/inspectionReportRoutes'
 
 const app = Fastify()
 
-// app.register(fastifyJwt, { secret: process.env.JWT_SECRET })
+const jwtSecret = process.env.JWT_SECRET
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET environment variable is not defined')
+}
+
+app.register(fastifyJwt, { secret: jwtSecret })
 app.register(fastifyCookie)
 
 app.register(secretaryRoutes)
