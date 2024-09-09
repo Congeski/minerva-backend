@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { InvalidCredentialsError } from '@/use-cases/errors/invalid-credentials-error'
-import { makeAuthenticateUseCase } from '@/use-cases/factories/make-authenticate-use-case'
+import { prisma } from '../utils/prisma'
+import { compare } from 'bcryptjs'
 
 export async function authenticate(
   request: FastifyRequest,
@@ -15,13 +15,31 @@ export async function authenticate(
   const { email, password } = authenticateBodySchema.parse(request.body)
 
   try {
-    const authenticateUseCase = makeAuthenticateUseCase()
-
-    const { user } = await authenticateUseCase.execute({
-      email,
-      password,
+    // Verifica se o usuário existe no banco
+    const user = await prisma.secretary.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        password_hash: true,
+        phone: true,
+        role: true, // Certifique-se de selecionar o campo role
+      },
     })
 
+    if (!user) {
+      return reply.status(400).send({ message: 'Invalid credentials.' })
+    }
+
+    // Compara a senha fornecida com a senha hash armazenada
+    const isPasswordValid = await compare(password, user.password_hash)
+
+    if (!isPasswordValid) {
+      return reply.status(400).send({ message: 'Invalid credentials.' })
+    }
+
+    // Cria o token JWT
     const token = await reply.jwtSign(
       {
         role: user.role,
@@ -45,6 +63,7 @@ export async function authenticate(
       },
     )
 
+    // Envia os tokens e define o cookie para o refresh token
     return reply
       .setCookie('refreshToken', refreshToken, {
         path: '/',
@@ -57,10 +76,6 @@ export async function authenticate(
         token,
       })
   } catch (err) {
-    if (err instanceof InvalidCredentialsError) {
-      return reply.status(400).send({ message: err.message })
-    }
-
-    throw err
+    return reply.status(500).send({ message: 'Internal server error.' })
   }
 }
